@@ -1,580 +1,668 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getSurnomAleatoire } from '@/lib/surnoms'
-import BadgeCanvas from './BadgeCanvas'
-import { Camera, Share2, Download, RefreshCw, CheckCircle2, Sparkles, Trophy, Users, Code2, Zap } from 'lucide-react'
+import {
+  Users, UserCheck, UserX, Trash2, RefreshCw,
+  Download, TrendingUp, Clock, Zap, AlertTriangle,
+  CheckCircle, ChevronDown, ChevronUp, Activity
+} from 'lucide-react'
 
-function sanitize(str: string): string {
-  return str.replace(/[<>&"'\/\\]/g, '').trim().slice(0, 60)
+/* ─── Types ─────────────────────────────────────────────────────────────── */
+type Participant = {
+  id: number
+  prenom: string
+  nom_complet: string
+  genre: 'homme' | 'femme'
+  created_at: string
 }
 
-/* ─── Styles ──────────────────────────────────────────────────────────────── */
+type Stats = {
+  total: number
+  hommes: number
+  femmes: number
+  today: number
+  lastHour: number
+}
+
+/* ─── CSS ────────────────────────────────────────────────────────────────── */
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-.jef-root {
+.adm-root {
   min-height: 100vh;
-  background: #edf7e8;
-  padding: 20px 16px 56px;
+  background: #0d1117;
   font-family: 'Plus Jakarta Sans', sans-serif;
+  color: #e6edf3;
+  padding: 28px 20px 60px;
 }
+.adm-inner { max-width: 900px; margin: 0 auto; }
 
-.jef-inner { max-width: 460px; margin: 0 auto; }
-
-/* ── HERO ───────────────────────────────────────────────── */
-.jef-hero {
-  position: relative;
-  background: #1a6e00;
-  border-radius: 28px;
-  overflow: hidden;
-  padding: 30px 26px 24px;
-  margin-bottom: 16px;
-  box-shadow: 0 12px 40px rgba(26,110,0,.22);
+/* ── TOP BAR ── */
+.adm-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 32px; flex-wrap: wrap; gap: 14px;
 }
-.jef-hero::after {
-  content: '';
-  position: absolute;
-  top: -60px; right: -60px;
-  width: 220px; height: 220px;
-  background: rgba(255,255,255,.04);
-  border-radius: 50%;
+.adm-brand {
+  display: flex; align-items: center; gap: 12px;
 }
-.jef-hero-eyebrow {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(255,255,255,.12);
-  border: 1px solid rgba(255,255,255,.2);
-  border-radius: 100px;
-  padding: 4px 13px;
-  font-size: 10.5px; font-weight: 600; letter-spacing: .9px;
-  text-transform: uppercase; color: rgba(255,255,255,.85);
-  margin-bottom: 14px;
-}
-.jef-hero-title {
-  font-family: 'Syne', sans-serif;
-  font-size: 24px; font-weight: 900; color: #fff;
-  line-height: 1.15; letter-spacing: -.3px;
-  margin-bottom: 4px;
-}
-.jef-hero-route {
-  font-size: 12.5px; color: rgba(255,255,255,.55);
-  margin-bottom: 22px; font-weight: 500;
-}
-
-/* creator strip */
-.jef-creator {
-  display: flex; align-items: center; gap: 11px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(255,255,255,.12);
-}
-.jef-creator-avatar {
-  width: 40px; height: 40px; border-radius: 50%;
-  background: rgba(255,255,255,.15);
-  border: 1.5px solid rgba(255,255,255,.3);
-  font-family: 'Syne', sans-serif;
-  font-weight: 800; font-size: 14px; color: #fff;
-  display: flex; align-items: center; justify-content: center;
+.adm-brand-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #2f8b09;
+  box-shadow: 0 0 0 4px rgba(47,139,9,.2);
+  animation: pulse 2s ease-in-out infinite;
   flex-shrink: 0;
 }
-.jef-creator-info { flex: 1; line-height: 1.35; }
-.jef-creator-name {
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 4px rgba(47,139,9,.2); }
+  50%      { box-shadow: 0 0 0 8px rgba(47,139,9,.05); }
+}
+.adm-brand-title {
   font-family: 'Syne', sans-serif;
-  font-weight: 700; font-size: 13.5px; color: #fff;
+  font-size: 20px; font-weight: 900; color: #fff;
+  letter-spacing: -.3px;
 }
-.jef-creator-role {
-  font-size: 11px; color: rgba(255,255,255,.5);
-  font-style: italic;
+.adm-brand-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: #2f8b09; font-weight: 600;
+  letter-spacing: .5px;
 }
-.jef-creator-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: #6ddd1e;
-  box-shadow: 0 0 0 3px rgba(109,221,30,.25);
-  flex-shrink: 0;
-  animation: blink 2.2s ease-in-out infinite;
-}
-@keyframes blink {
-  0%,100% { opacity: 1; }
-  50%      { opacity: .35; }
-}
-
-/* ── CHALLENGE BANNER ────────────────────────────────────── */
-.jef-banner {
-  background: #fff;
-  border-radius: 22px;
-  padding: 20px 22px;
-  margin-bottom: 16px;
-  border-left: 5px solid #2f8b09;
-  box-shadow: 0 3px 16px rgba(0,0,0,.05);
-}
-.jef-banner-head {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 10px;
-}
-.jef-banner-icon {
-  width: 40px; height: 40px; border-radius: 12px;
-  background: #f0fae8;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.jef-banner-title {
-  font-family: 'Syne', sans-serif;
-  font-size: 15px; font-weight: 800; color: #1a6e00;
-}
-.jef-banner-body {
-  font-size: 13px; line-height: 1.7; color: #555;
-  margin-bottom: 14px;
-}
-.jef-banner-body strong { color: #1a6e00; }
-.jef-steps {
-  display: flex; gap: 7px; flex-wrap: wrap;
-}
-.jef-step {
-  display: flex; align-items: center; gap: 5px;
-  background: #f0fae8; border: 1px solid #c8e8b4;
-  border-radius: 100px; padding: 5px 12px;
-  font-size: 11.5px; font-weight: 600; color: #2f8b09;
-}
-
-/* ── FORM CARD ────────────────────────────────────────────── */
-.jef-card {
-  background: #fff;
-  border-radius: 26px;
-  padding: 28px 22px 26px;
-  box-shadow: 0 6px 28px rgba(0,0,0,.06);
-  margin-bottom: 16px;
-}
-.jef-card-title {
-  font-family: 'Syne', sans-serif;
-  font-size: 20px; font-weight: 800; color: #1a6e00;
-  text-align: center; margin-bottom: 24px;
-}
-
-/* photo zone */
-.jef-photo-label {
-  display: block; cursor: pointer; margin-bottom: 18px;
-}
-.jef-photo-zone {
-  border: 2px dashed #b8dda4;
-  border-radius: 20px; padding: 26px;
-  text-align: center; background: #f8fdf5;
-  transition: border-color .2s, background .2s;
-}
-.jef-photo-zone:hover { border-color: #2f8b09; background: #f1fce8; }
-.jef-photo-preview {
-  width: 132px; height: 132px; border-radius: 50%;
-  object-fit: cover; border: 4px solid #2f8b09;
-  display: block; margin: 0 auto;
-}
-.jef-photo-cta { color: #2f8b09; font-weight: 700; font-size: 15px; margin-top: 10px; }
-.jef-photo-hint { color: #b0b0b0; font-size: 12px; margin-top: 4px; }
-
-/* inputs */
-.jef-field {
-  width: 100%; padding: 15px 18px;
-  border: 2px solid #efefef; border-radius: 14px;
-  font-size: 15px; font-family: 'Plus Jakarta Sans', sans-serif;
-  font-weight: 500; color: #222; outline: none;
-  transition: border-color .2s; margin-bottom: 12px;
-  background: #fafafa;
-}
-.jef-field:focus { border-color: #2f8b09; background: #fff; }
-.jef-field::placeholder { color: #ccc; }
-
-/* genre */
-.jef-genre-row { display: flex; gap: 10px; margin-bottom: 20px; }
-.jef-genre-btn {
-  flex: 1; padding: 15px 8px; border-radius: 14px;
-  border: 2px solid #efefef; background: #fafafa;
-  color: #777; font-weight: 700; font-size: 13.5px;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+.adm-refresh-btn {
+  display: flex; align-items: center; gap: 7px;
+  background: #161b22; border: 1px solid #30363d;
+  border-radius: 10px; padding: 9px 16px;
+  color: #8b949e; font-size: 13px; font-weight: 600;
   cursor: pointer; transition: all .18s;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
-.jef-genre-btn:hover { border-color: #b8dda4; }
-.jef-genre-btn.active { border-color: #2f8b09; background: #2f8b09; color: #fff; }
+.adm-refresh-btn:hover { border-color: #2f8b09; color: #2f8b09; }
+.adm-refresh-btn.spinning svg { animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── CONSENT ─────────────────────────────────────────────── */
-.jef-consent-wrap {
-  display: flex; align-items: flex-start; gap: 13px;
-  background: #f8fdf5;
-  border: 1.5px solid #c8e8b4;
-  border-radius: 16px; padding: 16px 18px;
-  margin-bottom: 22px; cursor: pointer;
-  transition: border-color .2s, background .2s;
+/* ── STAT CARDS ── */
+.adm-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin-bottom: 24px;
 }
-.jef-consent-wrap:hover    { border-color: #2f8b09; }
-.jef-consent-wrap.checked  { border-color: #2f8b09; background: #edfae3; }
-
-.jef-check-box {
-  width: 24px; height: 24px; border-radius: 8px;
-  border: 2px solid #c0ddb0; background: #fff;
+.adm-stat {
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 16px; padding: 18px 20px;
+  transition: border-color .2s;
+}
+.adm-stat:hover { border-color: #30363d; }
+.adm-stat-icon {
+  width: 36px; height: 36px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; margin-top: 1px;
-  transition: all .18s;
+  margin-bottom: 12px;
 }
-.jef-check-box.checked { background: #2f8b09; border-color: #2f8b09; }
-
-.jef-consent-text { font-size: 12.5px; line-height: 1.65; color: #666; }
-.jef-consent-text strong { color: #1a6e00; }
-.jef-consent-text .shield {
-  display: inline-block; width: 14px; height: 14px;
-  vertical-align: middle; margin-right: 4px;
-}
-
-/* ── CTA ─────────────────────────────────────────────────── */
-.jef-cta {
-  width: 100%; padding: 19px;
-  border-radius: 16px; border: none;
-  background: #2f8b09; color: #fff;
+.adm-stat-icon.green  { background: rgba(47,139,9,.15); }
+.adm-stat-icon.blue   { background: rgba(56,139,253,.12); }
+.adm-stat-icon.pink   { background: rgba(219,97,162,.12); }
+.adm-stat-icon.amber  { background: rgba(210,153,34,.12); }
+.adm-stat-icon.teal   { background: rgba(34,197,196,.12); }
+.adm-stat-value {
   font-family: 'Syne', sans-serif;
-  font-weight: 900; font-size: 17px; letter-spacing: .2px;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(47,139,9,.28);
-  transition: transform .15s, box-shadow .15s, background .15s;
+  font-size: 32px; font-weight: 900; color: #fff;
+  line-height: 1; margin-bottom: 4px;
 }
-.jef-cta:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(47,139,9,.35);
-}
-.jef-cta:active:not(:disabled) { transform: translateY(0); }
-.jef-cta:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
+.adm-stat-label { font-size: 12px; color: #8b949e; font-weight: 500; }
 
-/* ── BADGE STEP ───────────────────────────────────────────── */
-.jef-badge-frame {
+/* ── ACTIONS RAPIDES ── */
+.adm-section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px; font-weight: 700; color: #8b949e;
+  letter-spacing: 1px; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.adm-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
+
+.adm-action-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 18px; border-radius: 12px;
+  font-size: 13.5px; font-weight: 700; cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  transition: all .18s; border: 1px solid transparent;
+}
+.adm-action-btn.export {
+  background: #1c2e1c; border-color: #2f8b09; color: #6ddd1e;
+}
+.adm-action-btn.export:hover { background: #2f8b09; color: #fff; }
+
+.adm-action-btn.reset {
+  background: #2d1515; border-color: #b91c1c; color: #f87171;
+}
+.adm-action-btn.reset:hover { background: #b91c1c; color: #fff; }
+.adm-action-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* confirm reset modal */
+.adm-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.75); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 20px;
+}
+.adm-modal {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 20px; padding: 32px 28px;
+  max-width: 400px; width: 100%;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+.adm-modal-icon {
+  width: 52px; height: 52px; border-radius: 16px;
+  background: rgba(185,28,28,.15);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 18px;
+}
+.adm-modal-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 19px; font-weight: 800; color: #fff;
+  text-align: center; margin-bottom: 10px;
+}
+.adm-modal-body {
+  font-size: 13.5px; color: #8b949e; text-align: center;
+  line-height: 1.65; margin-bottom: 24px;
+}
+.adm-modal-body strong { color: #f87171; }
+.adm-modal-btns { display: flex; gap: 10px; }
+.adm-modal-cancel {
+  flex: 1; padding: 13px; border-radius: 12px;
+  background: #21262d; border: 1px solid #30363d; color: #8b949e;
+  font-weight: 700; font-size: 14px; cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  transition: all .15s;
+}
+.adm-modal-cancel:hover { border-color: #8b949e; color: #e6edf3; }
+.adm-modal-confirm {
+  flex: 1; padding: 13px; border-radius: 12px;
+  background: #b91c1c; border: none; color: #fff;
+  font-weight: 700; font-size: 14px; cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  transition: all .15s;
+}
+.adm-modal-confirm:hover { background: #dc2626; }
+
+/* ── TOAST ── */
+.adm-toast {
+  position: fixed; bottom: 28px; right: 28px;
+  background: #161b22; border: 1px solid #30363d;
+  border-radius: 14px; padding: 14px 20px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13.5px; font-weight: 600; color: #e6edf3;
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  animation: slideIn .3s ease;
+  z-index: 200;
+}
+.adm-toast.success { border-color: #2f8b09; }
+.adm-toast.error   { border-color: #b91c1c; }
+@keyframes slideIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── TABLE ── */
+.adm-table-wrap {
+  background: #161b22;
+  border: 1px solid #21262d;
   border-radius: 18px; overflow: hidden;
-  border: 1px solid #eee; margin-bottom: 18px;
+  margin-bottom: 24px;
 }
-.jef-actions { display: flex; gap: 10px; margin-bottom: 20px; }
-.jef-btn-dl {
-  flex: 1; padding: 15px; border-radius: 14px;
-  background: #2f8b09; color: #fff;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-weight: 700; font-size: 14px; border: none;
-  cursor: pointer; display: flex; align-items: center;
-  justify-content: center; gap: 7px;
-  transition: opacity .2s;
+.adm-table-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px; border-bottom: 1px solid #21262d;
+  flex-wrap: wrap; gap: 10px;
 }
-.jef-btn-dl:hover { opacity: .88; }
-.jef-btn-wa {
-  flex: 1; padding: 15px; border-radius: 14px;
-  background: #25D366; color: #fff;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-weight: 700; font-size: 14px; border: none;
-  cursor: pointer; display: flex; align-items: center;
-  justify-content: center; gap: 7px;
-  transition: opacity .2s;
-}
-.jef-btn-wa:hover { opacity: .88; }
-
-/* duo */
-.jef-duo {
-  background: #f8fdf5;
-  border: 2px dashed #b8dda4;
-  border-radius: 22px; padding: 20px;
-  margin-bottom: 16px;
-}
-.jef-duo-title {
+.adm-table-head-title {
   font-family: 'Syne', sans-serif;
-  font-weight: 800; font-size: 15px; color: #2f8b09;
-  text-align: center; margin-bottom: 14px;
+  font-size: 15px; font-weight: 800; color: #fff;
+  display: flex; align-items: center; gap: 8px;
 }
-.jef-btn-duo {
-  width: 100%; padding: 14px; border-radius: 12px;
-  background: #1a6e00; color: #fff;
+.adm-search {
+  background: #0d1117; border: 1px solid #30363d;
+  border-radius: 10px; padding: 8px 14px;
+  color: #e6edf3; font-size: 13px; outline: none;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-weight: 700; font-size: 14px; border: none;
-  cursor: pointer; transition: opacity .2s;
+  width: 200px; transition: border-color .18s;
 }
-.jef-btn-duo:hover { opacity: .88; }
-.jef-btn-duo-dl {
-  width: 100%; margin-top: 10px; background: none; border: none;
-  color: #2f8b09; font-size: 12.5px; font-weight: 700;
-  cursor: pointer; text-decoration: underline;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-}
-.jef-btn-reset {
-  width: 100%; padding: 15px; border-radius: 14px;
-  background: transparent; color: #2f8b09;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-weight: 700; font-size: 14px;
-  border: 2px solid #2f8b09; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 7px;
-  transition: background .18s, color .18s;
-}
-.jef-btn-reset:hover { background: #2f8b09; color: #fff; }
+.adm-search:focus { border-color: #2f8b09; }
+.adm-search::placeholder { color: #484f58; }
 
-/* ── FOOTER ──────────────────────────────────────────────── */
-.jef-footer {
-  text-align: center;
-  font-size: 11.5px; color: #90b880; line-height: 1.7;
-  margin-top: 6px;
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  padding: 10px 22px; text-align: left;
+  font-size: 11px; font-weight: 600; color: #8b949e;
+  letter-spacing: .8px; text-transform: uppercase;
+  background: #0d1117; border-bottom: 1px solid #21262d;
+  cursor: pointer; user-select: none;
 }
-.jef-footer strong { color: #2f8b09; }
+thead th:hover { color: #e6edf3; }
+tbody tr {
+  border-bottom: 1px solid #21262d;
+  transition: background .12s;
+}
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: rgba(255,255,255,.025); }
+tbody td {
+  padding: 13px 22px; font-size: 13.5px; color: #c9d1d9;
+  font-weight: 500;
+}
+.adm-badge-genre {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 100px;
+  font-size: 11.5px; font-weight: 700;
+}
+.adm-badge-genre.homme { background: rgba(56,139,253,.1); color: #79c0ff; }
+.adm-badge-genre.femme { background: rgba(219,97,162,.1); color: #f778ba; }
+
+.adm-mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8b949e; }
+
+.adm-delete-row {
+  background: none; border: none; color: #484f58;
+  cursor: pointer; padding: 5px; border-radius: 6px;
+  transition: color .15s, background .15s;
+  display: flex; align-items: center;
+}
+.adm-delete-row:hover { color: #f87171; background: rgba(185,28,28,.1); }
+
+.adm-empty {
+  text-align: center; padding: 48px; color: #484f58;
+  font-size: 14px;
+}
+
+/* pagination */
+.adm-pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 22px; border-top: 1px solid #21262d;
+  font-size: 12.5px; color: #8b949e;
+}
+.adm-page-btns { display: flex; gap: 6px; }
+.adm-page-btn {
+  padding: 5px 12px; border-radius: 8px;
+  background: #21262d; border: 1px solid #30363d;
+  color: #8b949e; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.adm-page-btn:hover:not(:disabled) { border-color: #2f8b09; color: #6ddd1e; }
+.adm-page-btn:disabled { opacity: .35; cursor: not-allowed; }
+.adm-page-btn.active { background: #2f8b09; border-color: #2f8b09; color: #fff; }
+
+/* ── ACTIVITY FEED ── */
+.adm-feed-wrap {
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 18px; overflow: hidden;
+}
+.adm-feed-head {
+  padding: 16px 22px; border-bottom: 1px solid #21262d;
+  font-family: 'Syne', sans-serif;
+  font-size: 14px; font-weight: 800; color: #fff;
+  display: flex; align-items: center; gap: 8px;
+}
+.adm-feed-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 22px; border-bottom: 1px solid #21262d;
+  font-size: 13px;
+}
+.adm-feed-item:last-child { border-bottom: none; }
+.adm-feed-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.adm-feed-dot.homme { background: #388bfd; }
+.adm-feed-dot.femme { background: #d961a2; }
+.adm-feed-name { font-weight: 600; color: #e6edf3; flex: 1; }
+.adm-feed-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #484f58; }
 `
 
-export default function BadgeGenerator() {
-  const [photo, setPhoto]           = useState<string | null>(null)
-  const [nom, setNom]               = useState('')
-  const [prenom, setPrenom]         = useState('')
-  const [genre, setGenre]           = useState<'homme' | 'femme' | null>(null)
-  const [surnom, setSurnom]         = useState('')
-  const [duoSurnom, setDuoSurnom]   = useState('')
-  const [loading, setLoading]       = useState(false)
-  const [duoLoading, setDuoLoading] = useState(false)
-  const [step, setStep]             = useState<'form' | 'badge'>('form')
-  const [consented, setConsented]   = useState(false)
+const PER_PAGE = 10
 
-  const canvasRef    = useRef<HTMLCanvasElement | null>(null)
-  const duoCanvasRef = useRef<HTMLCanvasElement | null>(null)
+function formatDate(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short' })
+    + ' ' + d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })
+}
 
-  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => setPhoto(ev.target?.result as string)
-    reader.readAsDataURL(file)
+function timeAgo(iso: string) {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000
+  if (diff < 60)   return `il y a ${Math.floor(diff)}s`
+  if (diff < 3600) return `il y a ${Math.floor(diff/60)}min`
+  if (diff < 86400) return `il y a ${Math.floor(diff/3600)}h`
+  return `il y a ${Math.floor(diff/86400)}j`
+}
+
+export default function AdminDashboard() {
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [stats, setStats]               = useState<Stats>({ total:0, hommes:0, femmes:0, today:0, lastHour:0 })
+  const [loading, setLoading]           = useState(true)
+  const [refreshing, setRefreshing]     = useState(false)
+  const [search, setSearch]             = useState('')
+  const [sortField, setSortField]       = useState<'prenom'|'genre'|'created_at'>('created_at')
+  const [sortAsc, setSortAsc]           = useState(false)
+  const [page, setPage]                 = useState(1)
+  const [showReset, setShowReset]       = useState(false)
+  const [resetting, setResetting]       = useState(false)
+  const [toast, setToast]               = useState<{msg:string; type:'success'|'error'} | null>(null)
+
+  const showToast = (msg: string, type: 'success'|'error' = 'success') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3500)
   }
 
-  const handleGenerer = async () => {
-    if (!photo || !nom || !prenom || !genre) {
-      alert('Remplis tous les champs et ajoute ta photo !')
-      return
-    }
-    if (!consented) {
-      alert('Merci d\'accepter les conditions avant de continuer.')
-      return
-    }
-    setLoading(true)
+  const fetchAll = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
     try {
-      const nomClean    = sanitize(nom)
-      const prenomClean = sanitize(prenom)
-      const nouveauSurnom = getSurnomAleatoire(genre)
-
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('utilisateurs')
-        .insert({ nom_complet: `${prenomClean} ${nomClean}`, prenom: prenomClean, genre })
+        .select('*')
+        .order('created_at', { ascending: false })
       if (error) throw error
 
-      setSurnom(nouveauSurnom)
-      setStep('badge')
-    } catch (err) {
-      console.error(err)
-      alert('Erreur lors de la génération. Réessaie !')
+      const list = (data || []) as Participant[]
+      setParticipants(list)
+
+      const now   = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const hour  = new Date(now.getTime() - 3600_000)
+
+      setStats({
+        total:    list.length,
+        hommes:   list.filter(p => p.genre === 'homme').length,
+        femmes:   list.filter(p => p.genre === 'femme').length,
+        today:    list.filter(p => new Date(p.created_at) >= today).length,
+        lastHour: list.filter(p => new Date(p.created_at) >= hour).length,
+      })
+    } catch {
+      showToast('Erreur de chargement', 'error')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
+  }, [])
+
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  /* ── Suppression individuelle ── */
+  const deleteOne = async (id: number, prenom: string) => {
+    if (!confirm(`Supprimer ${prenom} ?`)) return
+    const { error } = await supabase.from('utilisateurs').delete().eq('id', id)
+    if (error) { showToast('Erreur suppression', 'error'); return }
+    showToast(`${prenom} supprimé`)
+    fetchAll()
   }
 
-  const handleDuo = async () => {
-    if (!genre) return
-    setDuoLoading(true)
+  /* ── Réinitialisation complète ── */
+  const handleReset = async () => {
+    setResetting(true)
     try {
-      const genreOppose = genre === 'homme' ? 'femme' : 'homme'
-      const { data } = await supabase
+      const { error } = await supabase
         .from('utilisateurs')
-        .select('prenom')
-        .eq('genre', genreOppose)
-        .limit(50)
-
-      if (!data || data.length === 0) {
-        const backup = genreOppose === 'homme' ? ['RENATO', 'WILFRIED'] : ['MERVEILLE', 'GLORIA']
-        const pDuo   = backup[Math.floor(Math.random() * backup.length)]
-        setDuoSurnom(genre === 'homme' ? `LE GARS DE ${pDuo}` : `LA GO DE ${pDuo}`)
-      } else {
-        const random = data[Math.floor(Math.random() * data.length)]
-        setDuoSurnom((genre === 'homme' ? 'LE GARS DE ' : 'LA GO DE ') + random.prenom.toUpperCase())
-      }
+        .delete()
+        .neq('id', 0) // supprime tout
+      if (error) throw error
+      setParticipants([])
+      setStats({ total:0, hommes:0, femmes:0, today:0, lastHour:0 })
+      setShowReset(false)
+      showToast('Base réinitialisée avec succès ✓')
     } catch {
-      alert('Erreur lors du duo.')
+      showToast('Erreur lors de la réinitialisation', 'error')
     } finally {
-      setDuoLoading(false)
+      setResetting(false)
     }
   }
 
-  const handleDownload = (canvas: HTMLCanvasElement | null, filename: string) => {
-    if (!canvas) return
-    const a = document.createElement('a')
-    a.download = filename
-    a.href = canvas.toDataURL('image/png', 1.0)
-    a.click()
+  /* ── Export CSV ── */
+  const exportCSV = () => {
+    const header = 'ID,Prénom,Nom complet,Genre,Date inscription'
+    const rows   = participants.map(p =>
+      `${p.id},"${p.prenom}","${p.nom_complet}","${p.genre}","${formatDate(p.created_at)}"`
+    )
+    const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url; a.download = `jef2026-participants-${Date.now()}.csv`; a.click()
+    showToast(`Export CSV · ${participants.length} participants`)
   }
 
+  /* ── Tri & filtre ── */
+  const handleSort = (field: typeof sortField) => {
+    if (field === sortField) setSortAsc(v => !v)
+    else { setSortField(field); setSortAsc(true) }
+    setPage(1)
+  }
+
+  const filtered = participants
+    .filter(p =>
+      p.prenom.toLowerCase().includes(search.toLowerCase()) ||
+      p.nom_complet.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const va = a[sortField], vb = b[sortField]
+      return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va)
+    })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  const SortIcon = ({ field }: { field: typeof sortField }) =>
+    sortField === field
+      ? (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)
+      : null
+
+  /* ── Render ── */
   return (
     <>
       <style>{css}</style>
-      <div className="jef-root">
-        <div className="jef-inner">
+      <div className="adm-root">
+        <div className="adm-inner">
 
-          {/* ════════════════ HERO ════════════════ */}
-          <div className="jef-hero">
-
-            <div className="jef-hero-eyebrow">
-              <Sparkles size={9} /> FLLAC · UAC · Ouidah → Grand‑Popo
-            </div>
-
-            <div className="jef-hero-title">JEF 2026 :<br />Le Rendez‑vous de l'Année</div>
-            <div className="jef-hero-route">Journée de l'Étudiant de la FLLAC</div>
-
-            {/* ── Signature créateur ── */}
-            <div className="jef-creator">
-              <div className="jef-creator-avatar">RT</div>
-              <div className="jef-creator-info">
-                <div className="jef-creator-name">Rénato TCHOBO</div>
-                <div className="jef-creator-role">Développeur web & mobile · Créateur digital</div>
+          {/* ── TOP BAR ── */}
+          <div className="adm-topbar">
+            <div className="adm-brand">
+              <div className="adm-brand-dot" />
+              <div>
+                <div className="adm-brand-title">Dashboard JEF 2026</div>
+                <div className="adm-brand-sub">ADMIN · RÉNATO TCHOBO</div>
               </div>
-              <div className="jef-creator-dot" title="En ligne" />
             </div>
-
+            <button
+              className={`adm-refresh-btn${refreshing ? ' spinning' : ''}`}
+              onClick={() => fetchAll(true)}
+            >
+              <RefreshCw size={14} />
+              {refreshing ? 'Actualisation…' : 'Actualiser'}
+            </button>
           </div>
 
-          {/* ════════════════ CHALLENGE ════════════════ */}
-          <div className="jef-banner">
-            <div className="jef-banner-head">
-              <div className="jef-banner-icon">
-                <Trophy size={21} color="#2f8b09" />
-              </div>
-              <div className="jef-banner-title">🎯 Le Challenge JEF 2026</div>
+          {/* ── STATS ── */}
+          <div className="adm-stats">
+            <div className="adm-stat">
+              <div className="adm-stat-icon green"><Users size={18} color="#2f8b09" /></div>
+              <div className="adm-stat-value">{stats.total}</div>
+              <div className="adm-stat-label">Total participants</div>
             </div>
-            <div className="jef-banner-body">
-              C'est le <strong>jeu viral de la JEF 2026</strong> ! Génère ton surnom officiel,
-              télécharge ton badge personnalisé et partage-le autour de toi. Chaque
-              participant reçoit un surnom unique — et peut découvrir son <strong>duo mystère</strong>.
-              Qui sera ton binôme JEF ? 👀
+            <div className="adm-stat">
+              <div className="adm-stat-icon blue"><UserCheck size={18} color="#388bfd" /></div>
+              <div className="adm-stat-value">{stats.hommes}</div>
+              <div className="adm-stat-label">Gars</div>
             </div>
-            <div className="jef-steps">
-              <span className="jef-step"><Camera size={11} /> Ajoute ta photo</span>
-              <span className="jef-step"><Zap size={11} /> Reçois ton surnom</span>
-              <span className="jef-step"><Share2 size={11} /> Partage</span>
-              <span className="jef-step"><Users size={11} /> Duo mystère</span>
+            <div className="adm-stat">
+              <div className="adm-stat-icon pink"><UserX size={18} color="#d961a2" /></div>
+              <div className="adm-stat-value">{stats.femmes}</div>
+              <div className="adm-stat-label">Go</div>
+            </div>
+            <div className="adm-stat">
+              <div className="adm-stat-icon amber"><TrendingUp size={18} color="#d29922" /></div>
+              <div className="adm-stat-value">{stats.today}</div>
+              <div className="adm-stat-label">Aujourd'hui</div>
+            </div>
+            <div className="adm-stat">
+              <div className="adm-stat-icon teal"><Zap size={18} color="#22c5c4" /></div>
+              <div className="adm-stat-value">{stats.lastHour}</div>
+              <div className="adm-stat-label">Cette heure</div>
             </div>
           </div>
 
-          {/* ════════════════ FORM ════════════════ */}
-          {step === 'form' ? (
-            <div className="jef-card">
-              <div className="jef-card-title">Génère ton surnom JEF 🏷️</div>
+          {/* ── ACTIONS RAPIDES ── */}
+          <div className="adm-section-title">Actions rapides</div>
+          <div className="adm-actions">
+            <button className="adm-action-btn export" onClick={exportCSV}
+              disabled={participants.length === 0}>
+              <Download size={15} /> Exporter CSV ({participants.length})
+            </button>
+            <button className="adm-action-btn reset" onClick={() => setShowReset(true)}
+              disabled={participants.length === 0}>
+              <Trash2 size={15} /> Réinitialiser la base
+            </button>
+          </div>
 
-              {/* Photo */}
-              <label className="jef-photo-label">
-                <div className="jef-photo-zone">
-                  {photo ? (
-                    <img src={photo} alt="preview" className="jef-photo-preview" />
-                  ) : (
-                    <>
-                      <Camera size={46} color="#2f8b09" strokeWidth={1.4} style={{ margin: '0 auto' }} />
-                      <div className="jef-photo-cta">Clique pour ajouter ta photo</div>
-                      <div className="jef-photo-hint">Portrait JPG / PNG recommandé</div>
-                    </>
-                  )}
-                </div>
-                <input type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
-              </label>
-
-              <input className="jef-field" type="text" placeholder="Ton prénom"
-                value={prenom} onChange={e => setPrenom(e.target.value)} />
-              <input className="jef-field" type="text" placeholder="Ton nom de famille"
-                value={nom} onChange={e => setNom(e.target.value)}
-                style={{ marginBottom: 20 }} />
-
-              {/* Genre */}
-              <div className="jef-genre-row">
-                <button className={`jef-genre-btn${genre === 'homme' ? ' active' : ''}`}
-                  onClick={() => setGenre('homme')}>💪 Je suis un gars</button>
-                <button className={`jef-genre-btn${genre === 'femme' ? ' active' : ''}`}
-                  onClick={() => setGenre('femme')}>💅 Je suis une go</button>
+          {/* ── TABLE ── */}
+          <div className="adm-table-wrap">
+            <div className="adm-table-head">
+              <div className="adm-table-head-title">
+                <Activity size={16} color="#2f8b09" />
+                Participants
+                <span style={{ background:'#21262d', borderRadius:6, padding:'2px 8px', fontSize:12, color:'#8b949e' }}>
+                  {filtered.length}
+                </span>
               </div>
-
-              {/* ── Consentement ── */}
-              <div className={`jef-consent-wrap${consented ? ' checked' : ''}`}
-                onClick={() => setConsented(v => !v)}>
-
-                <div className={`jef-check-box${consented ? ' checked' : ''}`}>
-                  {consented && (
-                    <svg width="13" height="10" viewBox="0 0 13 10" fill="none">
-                      <path d="M1.5 5L5 8.5L11.5 1.5"
-                        stroke="white" strokeWidth="2.2"
-                        strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </div>
-
-                <div className="jef-consent-text">
-                  <CheckCircle2 size={13} color="#2f8b09" style={{ display:'inline', verticalAlign:'middle', marginRight:5 }} />
-                  J'accepte que mon <strong>prénom et mon genre</strong> soient enregistrés dans le
-                  cadre de ce <strong>jeu challenge JEF 2026</strong>. Ces données sont utilisées
-                  uniquement pour la fonctionnalité Duo Mystère et ne seront
-                  jamais partagées à des tiers. Ma participation est <strong>volontaire</strong>.
-                </div>
-              </div>
-
-              <button className="jef-cta" onClick={handleGenerer}
-                disabled={loading || !consented}>
-                {loading ? '⏳ Génération en cours…' : '⚡ GÉNÉRER MON SURNOM JEF'}
-              </button>
+              <input
+                className="adm-search"
+                placeholder="Rechercher…"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+              />
             </div>
 
-          ) : (
+            {loading ? (
+              <div className="adm-empty">Chargement…</div>
+            ) : paginated.length === 0 ? (
+              <div className="adm-empty">Aucun participant trouvé</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th onClick={() => handleSort('prenom')}>
+                      Prénom <SortIcon field="prenom" />
+                    </th>
+                    <th>Nom complet</th>
+                    <th onClick={() => handleSort('genre')}>
+                      Genre <SortIcon field="genre" />
+                    </th>
+                    <th onClick={() => handleSort('created_at')}>
+                      Inscrit <SortIcon field="created_at" />
+                    </th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map(p => (
+                    <tr key={p.id}>
+                      <td style={{ fontWeight: 700, color: '#e6edf3' }}>{p.prenom}</td>
+                      <td>{p.nom_complet}</td>
+                      <td>
+                        <span className={`adm-badge-genre ${p.genre}`}>
+                          {p.genre === 'homme' ? '💪 Gars' : '💅 Go'}
+                        </span>
+                      </td>
+                      <td className="adm-mono">{formatDate(p.created_at)}</td>
+                      <td>
+                        <button className="adm-delete-row"
+                          onClick={() => deleteOne(p.id, p.prenom)}
+                          title="Supprimer">
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
 
-          /* ════════════════ BADGE STEP ════════════════ */
-            <div className="jef-card">
-              <div className="jef-card-title">🎉 Ton badge JEF 2026 !</div>
-
-              <div className="jef-badge-frame">
-                <BadgeCanvas photo={photo} nom={`${prenom} ${nom}`} surnom={surnom}
-                  visible={true} onReady={c => { canvasRef.current = c }} />
+            {/* Pagination */}
+            {filtered.length > PER_PAGE && (
+              <div className="adm-pagination">
+                <span>{(page-1)*PER_PAGE + 1}–{Math.min(page*PER_PAGE, filtered.length)} sur {filtered.length}</span>
+                <div className="adm-page-btns">
+                  <button className="adm-page-btn" onClick={() => setPage(p => p-1)} disabled={page === 1}>←</button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+                    .map((n, i, arr) => (
+                      <>
+                        {i > 0 && arr[i-1] !== n - 1 && <span key={`dots-${n}`} style={{ color:'#484f58', padding:'0 4px' }}>…</span>}
+                        <button key={n} className={`adm-page-btn${n === page ? ' active' : ''}`}
+                          onClick={() => setPage(n)}>{n}</button>
+                      </>
+                    ))}
+                  <button className="adm-page-btn" onClick={() => setPage(p => p+1)} disabled={page === totalPages}>→</button>
+                </div>
               </div>
+            )}
+          </div>
 
-              <div className="jef-actions">
-                <button className="jef-btn-dl"
-                  onClick={() => handleDownload(canvasRef.current, `badge-jef-${prenom}.png`)}>
-                  <Download size={16} /> Télécharger
-                </button>
-                <button className="jef-btn-wa"
-                  onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('Mon badge JEF 2026 ! 🎓 #JEF2026 #FLLAC')}`)}>
-                  <Share2 size={16} /> WhatsApp
-                </button>
+          {/* ── ACTIVITÉ RÉCENTE ── */}
+          {participants.length > 0 && (
+            <div className="adm-feed-wrap">
+              <div className="adm-feed-head">
+                <Clock size={15} color="#2f8b09" /> Activité récente
               </div>
-
-              {/* Duo mystère */}
-              <div className="jef-duo">
-                <div className="jef-duo-title">💞 Duo Mystère JEF</div>
-
-                {duoSurnom && (
-                  <div className="jef-badge-frame" style={{ marginBottom: 14 }}>
-                    <BadgeCanvas photo={photo} nom={`${prenom} ${nom}`} surnom={duoSurnom}
-                      visible={true} onReady={c => { duoCanvasRef.current = c }} />
+              {participants.slice(0, 8).map(p => (
+                <div key={p.id} className="adm-feed-item">
+                  <div className={`adm-feed-dot ${p.genre}`} />
+                  <div className="adm-feed-name">
+                    {p.prenom} &nbsp;
+                    <span style={{ color:'#8b949e', fontWeight:400, fontSize:12 }}>
+                      {p.genre === 'homme' ? '💪' : '💅'}
+                    </span>
                   </div>
-                )}
-
-                <button className="jef-btn-duo" onClick={handleDuo} disabled={duoLoading}>
-                  {duoLoading ? '🔍 Recherche…' : '🎲 Trouver mon binôme'}
-                </button>
-
-                {duoSurnom && (
-                  <button className="jef-btn-duo-dl"
-                    onClick={() => handleDownload(duoCanvasRef.current, `duo-jef-${prenom}.png`)}>
-                    ↓ Télécharger le badge Duo
-                  </button>
-                )}
-              </div>
-
-              <button className="jef-btn-reset"
-                onClick={() => { setStep('form'); setSurnom(''); setDuoSurnom('') }}>
-                <RefreshCw size={14} /> Recommencer
-              </button>
+                  <div className="adm-feed-time">{timeAgo(p.created_at)}</div>
+                </div>
+              ))}
             </div>
           )}
 
-          {/* ════════════════ FOOTER ════════════════ */}
-          <div className="jef-footer">
-            Plateforme JEF 2026 · Conçue &amp; mise en ligne par{' '}
-            <strong>Rénato TCHOBO</strong><br />
-            Développeur web &amp; mobile · Créateur digital
-          </div>
-
         </div>
       </div>
+
+      {/* ── MODAL RESET ── */}
+      {showReset && (
+        <div className="adm-modal-overlay">
+          <div className="adm-modal">
+            <div className="adm-modal-icon">
+              <AlertTriangle size={26} color="#f87171" />
+            </div>
+            <div className="adm-modal-title">Réinitialiser la base ?</div>
+            <div className="adm-modal-body">
+              Cette action va <strong>supprimer définitivement</strong> les{' '}
+              <strong>{stats.total} participants</strong> enregistrés.
+              Cette opération est <strong>irréversible</strong>.
+            </div>
+            <div className="adm-modal-btns">
+              <button className="adm-modal-cancel" onClick={() => setShowReset(false)}>
+                Annuler
+              </button>
+              <button className="adm-modal-confirm" onClick={handleReset}
+                disabled={resetting}>
+                {resetting ? 'Suppression…' : '🗑️ Tout supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TOAST ── */}
+      {toast && (
+        <div className={`adm-toast ${toast.type}`}>
+          {toast.type === 'success'
+            ? <CheckCircle size={16} color="#2f8b09" />
+            : <AlertTriangle size={16} color="#f87171" />}
+          {toast.msg}
+        </div>
+      )}
     </>
   )
 }
