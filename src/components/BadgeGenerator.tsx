@@ -21,6 +21,7 @@ const LS = {
   genre:     'jef_genre',
   surnom:    'jef_surnom',
   duoSurnom: 'jef_duo_surnom',
+  photo:     'jef_photo',          // ← photo sauvegardée
 }
 
 const css = `
@@ -65,6 +66,10 @@ const css = `
 .jef-alert-duo-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
 .jef-alert-duo-text { font-size: 13px; color: #92400e; line-height: 1.6; }
 .jef-alert-duo-text strong { color: #78350f; }
+
+/* Photo manquante au retour */
+.jef-photo-missing { background: #fff8e8; border: 2px dashed #f59e0b; border-radius: 16px; padding: 18px; margin-bottom: 16px; text-align: center; }
+.jef-photo-missing p { font-size: 13px; color: #92400e; margin-bottom: 10px; font-weight: 600; }
 
 .jef-photo-label { display: block; cursor: pointer; margin-bottom: 18px; }
 .jef-photo-zone { border: 2px dashed #b8dda4; border-radius: 20px; padding: 26px; text-align: center; background: #f8fdf5; transition: border-color .2s, background .2s; }
@@ -150,10 +155,14 @@ export default function BadgeGenerator() {
   const canvasRef    = useRef<HTMLCanvasElement | null>(null)
   const duoCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // ── Restauration au chargement depuis localStorage + Supabase ────────────
+  // ── Restauration au chargement ───────────────────────────────────────────
   useEffect(() => {
     const savedId = localStorage.getItem(LS.id)
     if (!savedId) { setRestoring(false); return }
+
+    // Restaure la photo depuis localStorage
+    const savedPhoto = localStorage.getItem(LS.photo)
+    if (savedPhoto) setPhoto(savedPhoto)
 
     supabase
       .from('utilisateurs')
@@ -171,7 +180,7 @@ export default function BadgeGenerator() {
       })
   }, [])
 
-  // ── Applique un profil à l'état React ────────────────────────────────────
+  // ── Applique un profil ───────────────────────────────────────────────────
   const applyProfile = (data: any, returning: boolean) => {
     setCurrentUserId(data.id)
     setCurrentPrenom(data.prenom)
@@ -185,6 +194,10 @@ export default function BadgeGenerator() {
     localStorage.setItem(LS.prenom, data.prenom)
     localStorage.setItem(LS.surnom, data.surnom ?? '')
     localStorage.setItem(LS.genre,  data.genre)
+
+    // Restaure la photo si dispo
+    const savedPhoto = localStorage.getItem(LS.photo)
+    if (savedPhoto) setPhoto(savedPhoto)
 
     if (data.duo_prenom) {
       const prefix   = data.genre === 'homme' ? 'LE GARS DE ' : 'LA GO DE '
@@ -204,7 +217,17 @@ export default function BadgeGenerator() {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => setPhoto(ev.target?.result as string)
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string
+      setPhoto(result)
+      // Sauvegarde immédiate de la photo
+      try {
+        localStorage.setItem(LS.photo, result)
+      } catch {
+        // localStorage plein (base64 trop lourd) → on garde juste en mémoire
+        console.warn('Photo trop lourde pour localStorage')
+      }
+    }
     reader.readAsDataURL(file)
   }
 
@@ -222,13 +245,13 @@ export default function BadgeGenerator() {
     try {
       const nomClean    = sanitize(nom)
       const prenomClean = sanitize(prenom)
-      const nomComplet = `${prenomClean} ${nomClean}`.toUpperCase().trim()
+      // Normalisation en majuscules → évite les doublons dus à la casse
+      const nomComplet  = `${prenomClean} ${nomClean}`.toUpperCase().trim()
       const nouveauSurnom = getSurnomAleatoire(genre)
 
-      // Appel à la fonction SQL atomique — gère doublon en une seule transaction
       const { data, error } = await supabase.rpc('inscrire_participant', {
         p_nom_complet: nomComplet,
-        p_prenom:      prenomClean,
+        p_prenom:      prenomClean.toUpperCase(),
         p_genre:       genre,
         p_surnom:      nouveauSurnom,
       })
@@ -237,6 +260,13 @@ export default function BadgeGenerator() {
 
       const result = data?.[0]
       if (!result) throw new Error('Pas de résultat')
+
+      // Sauvegarde photo dans localStorage
+      try {
+        localStorage.setItem(LS.photo, photo)
+      } catch {
+        console.warn('Photo trop lourde pour localStorage')
+      }
 
       // is_new = false → personne déjà inscrite
       applyProfile(result, !result.is_new)
@@ -251,13 +281,12 @@ export default function BadgeGenerator() {
 
   // ── Tirage via fonction SQL atomique ─────────────────────────────────────
   const handleDuo = async () => {
-    if (duoLocked) return          // 🔒 verrou absolu côté React
+    if (duoLocked) return
     if (!genre || !currentUserId) return
 
-    setDuoLocked(true)             // 🔒 verrouille immédiatement
+    setDuoLocked(true)
     setDuoLoading(true)
     try {
-      // Appel à la fonction SQL atomique avec verrou FOR UPDATE SKIP LOCKED
       const { data, error } = await supabase.rpc('tirer_binome', {
         p_user_id: currentUserId,
         p_genre:   genre,
@@ -269,7 +298,6 @@ export default function BadgeGenerator() {
       const result = data?.[0]
 
       if (!result || !result.binome_prenom) {
-        // Aucun binôme disponible
         setDuoLocked(false)
         setDuoSurnom(DUO_INDISPO)
         return
@@ -280,7 +308,6 @@ export default function BadgeGenerator() {
 
       localStorage.setItem(LS.duoSurnom, surnomDuo)
       setDuoSurnom(surnomDuo)
-      // duoLocked reste true → définitif
 
     } catch (err) {
       console.error(err)
@@ -307,6 +334,7 @@ export default function BadgeGenerator() {
 
   const handleReset = () => {
     Object.values(LS).forEach(k => localStorage.removeItem(k))
+    localStorage.removeItem('jef_photo')
     setStep('form'); setSurnom(''); setDuoSurnom('')
     setCurrentUserId(null); setCurrentPrenom('')
     setDuoLocked(false); setPhoto(null)
@@ -441,7 +469,7 @@ export default function BadgeGenerator() {
             /* ════════ BADGE STEP ════════ */
             <div className="jef-card">
 
-              {/* Message retour utilisateur */}
+              {/* Message retour */}
               {isReturning && (
                 <div className="jef-returning">
                   <div className="jef-returning-emoji">🎉</div>
@@ -463,27 +491,47 @@ export default function BadgeGenerator() {
                 {isReturning ? '🏷️ Ton badge JEF 2026' : '🎉 Ton badge JEF 2026 !'}
               </div>
 
-              <div className="jef-badge-frame">
-                <BadgeCanvas photo={photo} nom={`${prenom} ${nom}`} surnom={surnom}
-                  visible={true} onReady={c => { canvasRef.current = c }} />
-              </div>
+              {/* Si pas de photo au retour → demande de re-uploader */}
+              {!photo && isReturning && (
+                <div className="jef-photo-missing">
+                  <p>📸 Ajoute ta photo pour afficher ton badge</p>
+                  <label style={{ cursor: 'pointer' }}>
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 8,
+                      background: '#f59e0b', color: '#fff', padding: '10px 20px',
+                      borderRadius: 10, fontWeight: 700, fontSize: 13
+                    }}>
+                      <Camera size={14} /> Ajouter ma photo
+                    </div>
+                    <input type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
+                  </label>
+                </div>
+              )}
 
-              <div className="jef-actions">
-                <button className="jef-btn-dl"
-                  onClick={() => handleDownload(canvasRef.current, `badge-jef-${prenom}.png`)}>
-                  <Download size={16} /> Télécharger
-                </button>
-                <button className="jef-btn-wa"
-                  onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('Mon badge JEF 2026 ! 🎓 #JEF2026 #FLLAC')}`)}>
-                  <Share2 size={16} /> WhatsApp
-                </button>
-              </div>
+              {photo && (
+                <>
+                  <div className="jef-badge-frame">
+                    <BadgeCanvas photo={photo} nom={`${prenom} ${nom}`} surnom={surnom}
+                      visible={true} onReady={c => { canvasRef.current = c }} />
+                  </div>
+
+                  <div className="jef-actions">
+                    <button className="jef-btn-dl"
+                      onClick={() => handleDownload(canvasRef.current, `badge-jef-${prenom}.png`)}>
+                      <Download size={16} /> Télécharger
+                    </button>
+                    <button className="jef-btn-wa"
+                      onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent('Mon badge JEF 2026 ! 🎓 #JEF2026 #FLLAC')}`)}>
+                      <Share2 size={16} /> WhatsApp
+                    </button>
+                  </div>
+                </>
+              )}
 
               {/* ── Duo mystère ── */}
               <div className="jef-duo">
                 <div className="jef-duo-title">💞 Duo Mystère JEF</div>
 
-                {/* Alerte pas encore de binôme */}
                 {isReturning && !duoTrouve && !duoIndispo && (
                   <div className="jef-alert-duo">
                     <div className="jef-alert-duo-icon">⚡</div>
@@ -494,8 +542,7 @@ export default function BadgeGenerator() {
                   </div>
                 )}
 
-                {/* Duo trouvé — définitif */}
-                {duoTrouve && (
+                {duoTrouve && photo && (
                   <>
                     <div className="jef-badge-frame">
                       <BadgeCanvas photo={photo} nom={`${prenom} ${nom}`} surnom={duoSurnom}
@@ -508,13 +555,10 @@ export default function BadgeGenerator() {
                   </>
                 )}
 
-                {/* Aucun binôme dispo */}
                 {duoIndispo && (
                   <div className="jef-duo-indispo">
                     <div className="jef-duo-indispo-emoji">⏳</div>
-                    <div className="jef-duo-indispo-title">
-                      Pas de binôme dispo pour l'instant !
-                    </div>
+                    <div className="jef-duo-indispo-title">Pas de binôme dispo pour l'instant !</div>
                     <div className="jef-duo-indispo-body">
                       Les inscriptions arrivent <strong>au fur et à mesure</strong> 🔥<br />
                       Reviens dans quelques minutes —{' '}
@@ -527,7 +571,6 @@ export default function BadgeGenerator() {
                   </div>
                 )}
 
-                {/* Bouton initial */}
                 {!duoTrouve && !duoIndispo && (
                   <button className="jef-btn-duo" onClick={handleDuo} disabled={duoLoading}>
                     {duoLoading ? '🔍 Recherche…' : '🎲 Trouver mon binôme'}
