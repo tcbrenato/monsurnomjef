@@ -5,8 +5,7 @@ import { getSurnomAleatoire } from '@/lib/surnoms'
 import BadgeCanvas from './BadgeCanvas'
 import {
   Camera, Share2, Download, RefreshCw,
-  CheckCircle2, Sparkles, Trophy, Users, Zap, Clock,
-  PartyPopper
+  CheckCircle2, Sparkles, Trophy, Users, Zap, Clock
 } from 'lucide-react'
 
 function sanitize(str: string): string {
@@ -31,7 +30,6 @@ const css = `
 .jef-root { min-height: 100vh; background: #edf7e8; padding: 20px 16px 56px; font-family: 'Plus Jakarta Sans', sans-serif; }
 .jef-inner { max-width: 460px; margin: 0 auto; }
 
-/* ── HERO ── */
 .jef-hero { position: relative; background: #1a6e00; border-radius: 28px; overflow: hidden; padding: 30px 26px 24px; margin-bottom: 16px; box-shadow: 0 12px 40px rgba(26,110,0,.22); }
 .jef-hero::after { content: ''; position: absolute; top: -60px; right: -60px; width: 220px; height: 220px; background: rgba(255,255,255,.04); border-radius: 50%; }
 .jef-hero-eyebrow { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); border-radius: 100px; padding: 4px 13px; font-size: 10.5px; font-weight: 600; letter-spacing: .9px; text-transform: uppercase; color: rgba(255,255,255,.85); margin-bottom: 14px; }
@@ -45,7 +43,6 @@ const css = `
 .jef-creator-dot { width: 8px; height: 8px; border-radius: 50%; background: #6ddd1e; box-shadow: 0 0 0 3px rgba(109,221,30,.25); flex-shrink: 0; animation: blink 2.2s ease-in-out infinite; }
 @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.35; } }
 
-/* ── BANNER ── */
 .jef-banner { background: #fff; border-radius: 22px; padding: 20px 22px; margin-bottom: 16px; border-left: 5px solid #2f8b09; box-shadow: 0 3px 16px rgba(0,0,0,.05); }
 .jef-banner-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .jef-banner-icon { width: 40px; height: 40px; border-radius: 12px; background: #f0fae8; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -55,32 +52,20 @@ const css = `
 .jef-steps { display: flex; gap: 7px; flex-wrap: wrap; }
 .jef-step { display: flex; align-items: center; gap: 5px; background: #f0fae8; border: 1px solid #c8e8b4; border-radius: 100px; padding: 5px 12px; font-size: 11.5px; font-weight: 600; color: #2f8b09; }
 
-/* ── CARD ── */
 .jef-card { background: #fff; border-radius: 26px; padding: 28px 22px 26px; box-shadow: 0 6px 28px rgba(0,0,0,.06); margin-bottom: 16px; }
 .jef-card-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: #1a6e00; text-align: center; margin-bottom: 24px; }
 
-/* ── RETOUR UTILISATEUR ── */
-.jef-returning {
-  background: #f0fae8; border: 2px solid #2f8b09;
-  border-radius: 20px; padding: 20px 18px; margin-bottom: 20px;
-  text-align: center;
-}
+.jef-returning { background: #f0fae8; border: 2px solid #2f8b09; border-radius: 20px; padding: 20px 18px; margin-bottom: 20px; text-align: center; }
 .jef-returning-emoji { font-size: 32px; margin-bottom: 8px; }
 .jef-returning-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px; color: #1a6e00; margin-bottom: 6px; }
 .jef-returning-body { font-size: 13px; color: #3a6e1a; line-height: 1.6; }
 .jef-returning-body strong { color: #1a6e00; }
 
-/* ── ALERTE DUO MANQUANT ── */
-.jef-alert-duo {
-  background: #fff8e8; border: 2px solid #f59e0b;
-  border-radius: 16px; padding: 16px 18px; margin-bottom: 16px;
-  display: flex; align-items: flex-start; gap: 12px;
-}
+.jef-alert-duo { background: #fff8e8; border: 2px solid #f59e0b; border-radius: 16px; padding: 16px 18px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 12px; }
 .jef-alert-duo-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
 .jef-alert-duo-text { font-size: 13px; color: #92400e; line-height: 1.6; }
 .jef-alert-duo-text strong { color: #78350f; }
 
-/* ── PHOTO ── */
 .jef-photo-label { display: block; cursor: pointer; margin-bottom: 18px; }
 .jef-photo-zone { border: 2px dashed #b8dda4; border-radius: 20px; padding: 26px; text-align: center; background: #f8fdf5; transition: border-color .2s, background .2s; }
 .jef-photo-zone:hover { border-color: #2f8b09; background: #f1fce8; }
@@ -88,18 +73,15 @@ const css = `
 .jef-photo-cta { color: #2f8b09; font-weight: 700; font-size: 15px; margin-top: 10px; }
 .jef-photo-hint { color: #b0b0b0; font-size: 12px; margin-top: 4px; }
 
-/* ── INPUTS ── */
 .jef-field { width: 100%; padding: 15px 18px; border: 2px solid #efefef; border-radius: 14px; font-size: 15px; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 500; color: #222; outline: none; transition: border-color .2s; margin-bottom: 12px; background: #fafafa; }
 .jef-field:focus { border-color: #2f8b09; background: #fff; }
 .jef-field::placeholder { color: #ccc; }
 
-/* ── GENRE ── */
 .jef-genre-row { display: flex; gap: 10px; margin-bottom: 20px; }
 .jef-genre-btn { flex: 1; padding: 15px 8px; border-radius: 14px; border: 2px solid #efefef; background: #fafafa; color: #777; font-weight: 700; font-size: 13.5px; font-family: 'Plus Jakarta Sans', sans-serif; cursor: pointer; transition: all .18s; }
 .jef-genre-btn:hover { border-color: #b8dda4; }
 .jef-genre-btn.active { border-color: #2f8b09; background: #2f8b09; color: #fff; }
 
-/* ── CONSENT ── */
 .jef-consent-wrap { display: flex; align-items: flex-start; gap: 13px; background: #f8fdf5; border: 1.5px solid #c8e8b4; border-radius: 16px; padding: 16px 18px; margin-bottom: 22px; cursor: pointer; transition: border-color .2s, background .2s; }
 .jef-consent-wrap:hover { border-color: #2f8b09; }
 .jef-consent-wrap.checked { border-color: #2f8b09; background: #edfae3; }
@@ -108,13 +90,11 @@ const css = `
 .jef-consent-text { font-size: 12.5px; line-height: 1.65; color: #666; }
 .jef-consent-text strong { color: #1a6e00; }
 
-/* ── CTA ── */
 .jef-cta { width: 100%; padding: 19px; border-radius: 16px; border: none; background: #2f8b09; color: #fff; font-family: 'Syne', sans-serif; font-weight: 900; font-size: 17px; letter-spacing: .2px; cursor: pointer; box-shadow: 0 8px 24px rgba(47,139,9,.28); transition: transform .15s, box-shadow .15s, background .15s; }
 .jef-cta:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(47,139,9,.35); }
 .jef-cta:active:not(:disabled) { transform: translateY(0); }
 .jef-cta:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
 
-/* ── BADGE ── */
 .jef-badge-frame { border-radius: 18px; overflow: hidden; border: 1px solid #eee; margin-bottom: 18px; }
 .jef-actions { display: flex; gap: 10px; margin-bottom: 20px; }
 .jef-btn-dl { flex: 1; padding: 15px; border-radius: 14px; background: #2f8b09; color: #fff; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; transition: opacity .2s; }
@@ -122,7 +102,6 @@ const css = `
 .jef-btn-wa { flex: 1; padding: 15px; border-radius: 14px; background: #25D366; color: #fff; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; transition: opacity .2s; }
 .jef-btn-wa:hover { opacity: .88; }
 
-/* ── DUO ── */
 .jef-duo { background: #f8fdf5; border: 2px dashed #b8dda4; border-radius: 22px; padding: 20px; margin-bottom: 16px; }
 .jef-duo-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; color: #2f8b09; text-align: center; margin-bottom: 14px; }
 .jef-btn-duo { width: 100%; padding: 14px; border-radius: 12px; background: #1a6e00; color: #fff; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 14px; border: none; cursor: pointer; transition: opacity .2s; }
@@ -130,7 +109,6 @@ const css = `
 .jef-btn-duo:disabled { opacity: .45; cursor: not-allowed; }
 .jef-btn-duo-dl { width: 100%; margin-top: 10px; background: none; border: none; color: #2f8b09; font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; font-family: 'Plus Jakarta Sans', sans-serif; }
 
-/* ── DUO INDISPO ── */
 .jef-duo-indispo { background: #fffbeb; border: 2px dashed #f59e0b; border-radius: 16px; padding: 22px 18px; text-align: center; margin-bottom: 14px; }
 .jef-duo-indispo-emoji { font-size: 36px; margin-bottom: 10px; }
 .jef-duo-indispo-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; color: #92400e; margin-bottom: 8px; }
@@ -140,17 +118,14 @@ const css = `
 .jef-btn-retry:hover:not(:disabled) { opacity: .88; }
 .jef-btn-retry:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ── LOADING ── */
 .jef-loading { text-align: center; padding: 48px 24px; }
 .jef-loading-spinner { width: 40px; height: 40px; border: 3px solid #c8e8b4; border-top-color: #2f8b09; border-radius: 50%; margin: 0 auto 16px; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .jef-loading-text { font-size: 14px; color: #888; }
 
-/* ── RESET ── */
 .jef-btn-reset { width: 100%; padding: 15px; border-radius: 14px; background: transparent; color: #2f8b09; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 14px; border: 2px solid #2f8b09; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; transition: background .18s, color .18s; }
 .jef-btn-reset:hover { background: #2f8b09; color: #fff; }
 
-/* ── FOOTER ── */
 .jef-footer { text-align: center; font-size: 11.5px; color: #90b880; line-height: 1.7; margin-top: 6px; }
 .jef-footer strong { color: #2f8b09; }
 `
@@ -170,12 +145,12 @@ export default function BadgeGenerator() {
   const [step, setStep]                   = useState<'form' | 'badge'>('form')
   const [consented, setConsented]         = useState(false)
   const [restoring, setRestoring]         = useState(true)
-  const [isReturning, setIsReturning]     = useState(false) // utilisateur déjà inscrit
+  const [isReturning, setIsReturning]     = useState(false)
 
   const canvasRef    = useRef<HTMLCanvasElement | null>(null)
   const duoCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // ── Restauration au chargement ───────────────────────────────────────────
+  // ── Restauration au chargement depuis localStorage + Supabase ────────────
   useEffect(() => {
     const savedId = localStorage.getItem(LS.id)
     if (!savedId) { setRestoring(false); return }
@@ -191,13 +166,13 @@ export default function BadgeGenerator() {
           setRestoring(false)
           return
         }
-        restoreProfile(data)
+        applyProfile(data, false)
         setRestoring(false)
       })
   }, [])
 
-  // ── Fonction de restauration réutilisable ────────────────────────────────
-  const restoreProfile = (data: any, returning = false) => {
+  // ── Applique un profil à l'état React ────────────────────────────────────
+  const applyProfile = (data: any, returning: boolean) => {
     setCurrentUserId(data.id)
     setCurrentPrenom(data.prenom)
     setPrenom(data.prenom)
@@ -212,11 +187,11 @@ export default function BadgeGenerator() {
     localStorage.setItem(LS.genre,  data.genre)
 
     if (data.duo_prenom) {
-      const prefix  = data.genre === 'homme' ? 'LE GARS DE ' : 'LA GO DE '
-      const restored = prefix + data.duo_prenom.toUpperCase()
-      setDuoSurnom(restored)
+      const prefix   = data.genre === 'homme' ? 'LE GARS DE ' : 'LA GO DE '
+      const duoLabel = prefix + data.duo_prenom.toUpperCase()
+      setDuoSurnom(duoLabel)
       setDuoLocked(true)
-      localStorage.setItem(LS.duoSurnom, restored)
+      localStorage.setItem(LS.duoSurnom, duoLabel)
     } else {
       setDuoSurnom('')
       setDuoLocked(false)
@@ -233,7 +208,7 @@ export default function BadgeGenerator() {
     reader.readAsDataURL(file)
   }
 
-  // ── Génération / récupération du badge ──────────────────────────────────
+  // ── Génération via fonction SQL atomique ─────────────────────────────────
   const handleGenerer = async () => {
     if (!photo || !nom || !prenom || !genre) {
       alert('Remplis tous les champs et ajoute ta photo !')
@@ -248,65 +223,23 @@ export default function BadgeGenerator() {
       const nomClean    = sanitize(nom)
       const prenomClean = sanitize(prenom)
       const nomComplet  = `${prenomClean} ${nomClean}`
-
-      // ── Vérifie si déjà inscrit ──
-      const { data: existing } = await supabase
-        .from('utilisateurs')
-        .select('id, prenom, nom_complet, genre, surnom, duo_prenom')
-        .eq('nom_complet', nomComplet)
-        .eq('genre', genre)
-        .maybeSingle()
-
-      if (existing) {
-        // Profil existant → restaure sans créer de doublon
-        restoreProfile(existing, true)
-        return
-      }
-
-      // ── Nouvelle inscription ──
       const nouveauSurnom = getSurnomAleatoire(genre)
 
-      const { data, error } = await supabase
-        .from('utilisateurs')
-        .insert({
-          nom_complet: nomComplet,
-          prenom: prenomClean,
-          genre,
-          surnom: nouveauSurnom,
-          duo_pris: false,
-        })
-        .select('id')
-        .single()
+      // Appel à la fonction SQL atomique — gère doublon en une seule transaction
+      const { data, error } = await supabase.rpc('inscrire_participant', {
+        p_nom_complet: nomComplet,
+        p_prenom:      prenomClean,
+        p_genre:       genre,
+        p_surnom:      nouveauSurnom,
+      })
 
-      if (error) {
-        // 409 = doublon détecté par contrainte unique → récupère le profil
-        if (error.code === '23505') {
-          const { data: fallback } = await supabase
-            .from('utilisateurs')
-            .select('id, prenom, nom_complet, genre, surnom, duo_prenom')
-            .eq('nom_complet', nomComplet)
-            .eq('genre', genre)
-            .single()
+      if (error) throw error
 
-          if (fallback) {
-            restoreProfile(fallback, true)
-            return
-          }
-        }
-        throw error
-      }
+      const result = data?.[0]
+      if (!result) throw new Error('Pas de résultat')
 
-      localStorage.setItem(LS.id,     data.id)
-      localStorage.setItem(LS.prenom, prenomClean)
-      localStorage.setItem(LS.nom,    nomClean)
-      localStorage.setItem(LS.genre,  genre)
-      localStorage.setItem(LS.surnom, nouveauSurnom)
-
-      setCurrentUserId(data.id)
-      setCurrentPrenom(prenomClean)
-      setSurnom(nouveauSurnom)
-      setIsReturning(false)
-      setStep('badge')
+      // is_new = false → personne déjà inscrite
+      applyProfile(result, !result.is_new)
 
     } catch (err) {
       console.error(err)
@@ -316,50 +249,38 @@ export default function BadgeGenerator() {
     }
   }
 
-  // ── Tirage du binôme ─────────────────────────────────────────────────────
+  // ── Tirage via fonction SQL atomique ─────────────────────────────────────
   const handleDuo = async () => {
-    if (duoLocked) return
-    if (duoSurnom && duoSurnom !== DUO_INDISPO) return
+    if (duoLocked) return          // 🔒 verrou absolu côté React
     if (!genre || !currentUserId) return
 
-    setDuoLocked(true)
+    setDuoLocked(true)             // 🔒 verrouille immédiatement
     setDuoLoading(true)
     try {
-      const genreOppose = genre === 'homme' ? 'femme' : 'homme'
-
-      const { data, error } = await supabase
-        .from('utilisateurs')
-        .select('id, prenom')
-        .eq('genre', genreOppose)
-        .eq('duo_pris', false)
-        .neq('id', currentUserId)
-        .limit(50)
+      // Appel à la fonction SQL atomique avec verrou FOR UPDATE SKIP LOCKED
+      const { data, error } = await supabase.rpc('tirer_binome', {
+        p_user_id: currentUserId,
+        p_genre:   genre,
+        p_prenom:  currentPrenom,
+      })
 
       if (error) throw error
 
-      if (!data || data.length === 0) {
+      const result = data?.[0]
+
+      if (!result || !result.binome_prenom) {
+        // Aucun binôme disponible
         setDuoLocked(false)
         setDuoSurnom(DUO_INDISPO)
         return
       }
 
-      const random    = data[Math.floor(Math.random() * data.length)]
       const prefix    = genre === 'homme' ? 'LE GARS DE ' : 'LA GO DE '
-      const surnomDuo = prefix + random.prenom.toUpperCase()
-
-      // Mise à jour symétrique et réciproque
-      await supabase
-        .from('utilisateurs')
-        .update({ duo_prenom: random.prenom, duo_id: random.id, duo_pris: true })
-        .eq('id', currentUserId)
-
-      await supabase
-        .from('utilisateurs')
-        .update({ duo_prenom: currentPrenom, duo_id: currentUserId, duo_pris: true })
-        .eq('id', random.id)
+      const surnomDuo = prefix + result.binome_prenom.toUpperCase()
 
       localStorage.setItem(LS.duoSurnom, surnomDuo)
       setDuoSurnom(surnomDuo)
+      // duoLocked reste true → définitif
 
     } catch (err) {
       console.error(err)
@@ -520,7 +441,7 @@ export default function BadgeGenerator() {
             /* ════════ BADGE STEP ════════ */
             <div className="jef-card">
 
-              {/* ── Message retour utilisateur existant ── */}
+              {/* Message retour utilisateur */}
               {isReturning && (
                 <div className="jef-returning">
                   <div className="jef-returning-emoji">🎉</div>
@@ -531,7 +452,7 @@ export default function BadgeGenerator() {
                     Tu as déjà généré ton surnom JEF 2026.
                     Voici ton badge — il ne changera jamais. 🔒
                     {duoTrouve
-                      ? <><br /><strong>Ton binôme est déjà trouvé !</strong> Tu peux télécharger ton badge duo ci-dessous.</>
+                      ? <><br /><strong>Ton binôme est déjà trouvé !</strong> Télécharge ton badge duo ci-dessous.</>
                       : <><br />Tu n'as pas encore de binôme — <strong>trouve-le maintenant !</strong> 👇</>
                     }
                   </div>
@@ -562,7 +483,7 @@ export default function BadgeGenerator() {
               <div className="jef-duo">
                 <div className="jef-duo-title">💞 Duo Mystère JEF</div>
 
-                {/* Alerte : pas encore de binôme pour un utilisateur qui revient */}
+                {/* Alerte pas encore de binôme */}
                 {isReturning && !duoTrouve && !duoIndispo && (
                   <div className="jef-alert-duo">
                     <div className="jef-alert-duo-icon">⚡</div>
@@ -573,7 +494,7 @@ export default function BadgeGenerator() {
                   </div>
                 )}
 
-                {/* Duo trouvé — définitif et réciproque */}
+                {/* Duo trouvé — définitif */}
                 {duoTrouve && (
                   <>
                     <div className="jef-badge-frame">
