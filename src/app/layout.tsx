@@ -24,11 +24,6 @@ export const metadata: Metadata = {
     description: 'Le jeu viral de la JEF 2026 · FLLAC · UAC',
     images: ['/renato.png'],
   },
-  icons: {
-    icon: '/renato.png',
-    apple: '/renato.png',
-    shortcut: '/renato.png',
-  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
