@@ -136,7 +136,7 @@ export default function BadgeGenerator() {
                     objectFit: 'cover', border: '4px solid #2f8b09', margin: '0 auto'
                   }} />
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', items: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
                       <Camera size={48} color="#2f8b09" strokeWidth={1.5} />
                     </div>
