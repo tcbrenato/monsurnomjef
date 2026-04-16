@@ -10,12 +10,13 @@ import {
 /* ─── Types ── */
 type Participant = {
   id: string
-  prenom: string
-  nom_complet: string
+  full_name: string
+  "first name": string
   genre: 'homme' | 'femme'
   date_inscription: string
   duo_prenom: string | null
-  duo_pris: boolean
+  duo_id: string | null
+  duo_price: boolean
 }
 
 type Stats = {
@@ -146,7 +147,7 @@ export default function AdminDashboard() {
   const [loading, setLoading]           = useState(true)
   const [refreshing, setRefreshing]     = useState(false)
   const [search, setSearch]             = useState('')
-  const [sortField, setSortField]       = useState<'prenom' | 'genre' | 'date_inscription'>('date_inscription')
+  const [sortField, setSortField]       = useState<'first name' | 'genre' | 'date_inscription'>('date_inscription')
   const [sortAsc, setSortAsc]           = useState(false)
   const [page, setPage]                 = useState(1)
   const [showReset, setShowReset]       = useState(false)
@@ -224,7 +225,7 @@ export default function AdminDashboard() {
   const exportCSV = () => {
     const header = 'Prénom,Nom complet,Genre,Duo,Date inscription'
     const rows   = participants.map(p =>
-      `"${p.prenom}","${p.nom_complet}","${p.genre}","${p.duo_prenom ?? ''}","${formatDate(p.date_inscription)}"`
+      `"${p["first name"]}","${p.full_name}","${p.genre}","${p.duo_prenom ?? ''}","${formatDate(p.date_inscription)}"`
     )
     const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
     const url  = URL.createObjectURL(blob)
@@ -235,7 +236,7 @@ export default function AdminDashboard() {
     showToast(`Export CSV · ${participants.length} participants`)
   }
 
-  const handleSort = (field: 'prenom' | 'genre' | 'date_inscription') => {
+  const handleSort = (field: 'first name' | 'genre' | 'date_inscription') => {
     if (field === sortField) setSortAsc(v => !v)
     else { setSortField(field); setSortAsc(true) }
     setPage(1)
@@ -243,8 +244,8 @@ export default function AdminDashboard() {
 
   const filtered = participants
     .filter(p =>
-      p.prenom.toLowerCase().includes(search.toLowerCase()) ||
-      p.nom_complet.toLowerCase().includes(search.toLowerCase())
+      p["first name"].toLowerCase().includes(search.toLowerCase()) ||
+      p.full_name.toLowerCase().includes(search.toLowerCase())
     )
     .sort((a, b) => {
       const va = String(a[sortField] ?? '')
@@ -255,7 +256,7 @@ export default function AdminDashboard() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
-  const SortIcon = ({ field }: { field: 'prenom' | 'genre' | 'date_inscription' }) =>
+  const SortIcon = ({ field }: { field: 'first name' | 'genre' | 'date_inscription' }) =>
     sortField === field
       ? (sortAsc ? <ChevronUp size={12} /> : <ChevronDown size={12} />)
       : null
@@ -352,7 +353,7 @@ export default function AdminDashboard() {
               <table>
                 <thead>
                   <tr>
-                    <th onClick={() => handleSort('prenom')}>Prénom <SortIcon field="prenom" /></th>
+                    <th onClick={() => handleSort('first name')}>Prénom <SortIcon field="first name" /></th>
                     <th>Nom complet</th>
                     <th onClick={() => handleSort('genre')}>Genre <SortIcon field="genre" /></th>
                     <th>Duo</th>
@@ -363,8 +364,8 @@ export default function AdminDashboard() {
                 <tbody>
                   {paginated.map(p => (
                     <tr key={p.id}>
-                      <td style={{ fontWeight: 700, color: '#e6edf3' }}>{p.prenom}</td>
-                      <td>{p.nom_complet}</td>
+                      <td style={{ fontWeight: 700, color: '#e6edf3' }}>{p["first name"]}</td>
+                      <td>{p.full_name}</td>
                       <td>
                         <span className={`adm-badge-genre ${p.genre}`}>
                           {p.genre === 'homme' ? '💪 Gars' : '💅 Go'}
@@ -376,7 +377,7 @@ export default function AdminDashboard() {
                       <td className="adm-mono">{formatDate(p.date_inscription)}</td>
                       <td>
                         <button className="adm-delete-row"
-                          onClick={() => deleteOne(p.id, p.prenom)}
+                          onClick={() => deleteOne(p.id, p["first name"])}
                           title="Supprimer">
                           <Trash2 size={14} />
                         </button>
@@ -420,7 +421,7 @@ export default function AdminDashboard() {
                 <div key={p.id} className="adm-feed-item">
                   <div className={`adm-feed-dot ${p.genre}`} />
                   <div className="adm-feed-name">
-                    {p.prenom}&nbsp;
+                    {p["first name"]}&nbsp;
                     <span style={{ color: '#8b949e', fontWeight: 400, fontSize: 12 }}>
                       {p.genre === 'homme' ? '💪' : '💅'}
                     </span>
