@@ -5,7 +5,8 @@ import { getSurnomAleatoire } from '@/lib/surnoms'
 import BadgeCanvas from './BadgeCanvas'
 import {
   Camera, Share2, Download, RefreshCw,
-  CheckCircle2, Sparkles, Trophy, Users, Zap, Clock
+  CheckCircle2, Sparkles, Trophy, Users, Zap, Clock,
+  PartyPopper
 } from 'lucide-react'
 
 function sanitize(str: string): string {
@@ -14,7 +15,6 @@ function sanitize(str: string): string {
 
 const DUO_INDISPO = '__INDISPO__'
 
-// ── Clés localStorage (cache rapide uniquement) ──
 const LS = {
   id:        'jef_user_id',
   prenom:    'jef_prenom',
@@ -58,6 +58,27 @@ const css = `
 /* ── CARD ── */
 .jef-card { background: #fff; border-radius: 26px; padding: 28px 22px 26px; box-shadow: 0 6px 28px rgba(0,0,0,.06); margin-bottom: 16px; }
 .jef-card-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: #1a6e00; text-align: center; margin-bottom: 24px; }
+
+/* ── RETOUR UTILISATEUR ── */
+.jef-returning {
+  background: #f0fae8; border: 2px solid #2f8b09;
+  border-radius: 20px; padding: 20px 18px; margin-bottom: 20px;
+  text-align: center;
+}
+.jef-returning-emoji { font-size: 32px; margin-bottom: 8px; }
+.jef-returning-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px; color: #1a6e00; margin-bottom: 6px; }
+.jef-returning-body { font-size: 13px; color: #3a6e1a; line-height: 1.6; }
+.jef-returning-body strong { color: #1a6e00; }
+
+/* ── ALERTE DUO MANQUANT ── */
+.jef-alert-duo {
+  background: #fff8e8; border: 2px solid #f59e0b;
+  border-radius: 16px; padding: 16px 18px; margin-bottom: 16px;
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.jef-alert-duo-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+.jef-alert-duo-text { font-size: 13px; color: #92400e; line-height: 1.6; }
+.jef-alert-duo-text strong { color: #78350f; }
 
 /* ── PHOTO ── */
 .jef-photo-label { display: block; cursor: pointer; margin-bottom: 18px; }
@@ -149,11 +170,12 @@ export default function BadgeGenerator() {
   const [step, setStep]                   = useState<'form' | 'badge'>('form')
   const [consented, setConsented]         = useState(false)
   const [restoring, setRestoring]         = useState(true)
+  const [isReturning, setIsReturning]     = useState(false) // utilisateur déjà inscrit
 
   const canvasRef    = useRef<HTMLCanvasElement | null>(null)
   const duoCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // ── Restauration au chargement — source de vérité = Supabase ────────────
+  // ── Restauration au chargement ───────────────────────────────────────────
   useEffect(() => {
     const savedId = localStorage.getItem(LS.id)
     if (!savedId) { setRestoring(false); return }
@@ -169,26 +191,39 @@ export default function BadgeGenerator() {
           setRestoring(false)
           return
         }
-
-        setCurrentUserId(data.id)
-        setCurrentPrenom(data.prenom)
-        setPrenom(data.prenom)
-        setNom(data.nom_complet.replace(data.prenom + ' ', '').trim())
-        setGenre(data.genre as 'homme' | 'femme')
-        setSurnom(data.surnom ?? '')
-
-        // Binôme depuis Supabase — source de vérité absolue
-        if (data.duo_prenom) {
-          const prefix  = data.genre === 'homme' ? 'LE GARS DE ' : 'LA GO DE '
-          const restored = prefix + data.duo_prenom.toUpperCase()
-          setDuoSurnom(restored)
-          setDuoLocked(true)
-        }
-
-        setStep('badge')
+        restoreProfile(data)
         setRestoring(false)
       })
   }, [])
+
+  // ── Fonction de restauration réutilisable ────────────────────────────────
+  const restoreProfile = (data: any, returning = false) => {
+    setCurrentUserId(data.id)
+    setCurrentPrenom(data.prenom)
+    setPrenom(data.prenom)
+    setNom(data.nom_complet.replace(data.prenom + ' ', '').trim())
+    setGenre(data.genre as 'homme' | 'femme')
+    setSurnom(data.surnom ?? '')
+    setIsReturning(returning)
+
+    localStorage.setItem(LS.id,     data.id)
+    localStorage.setItem(LS.prenom, data.prenom)
+    localStorage.setItem(LS.surnom, data.surnom ?? '')
+    localStorage.setItem(LS.genre,  data.genre)
+
+    if (data.duo_prenom) {
+      const prefix  = data.genre === 'homme' ? 'LE GARS DE ' : 'LA GO DE '
+      const restored = prefix + data.duo_prenom.toUpperCase()
+      setDuoSurnom(restored)
+      setDuoLocked(true)
+      localStorage.setItem(LS.duoSurnom, restored)
+    } else {
+      setDuoSurnom('')
+      setDuoLocked(false)
+    }
+
+    setStep('badge')
+  }
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -198,7 +233,7 @@ export default function BadgeGenerator() {
     reader.readAsDataURL(file)
   }
 
-  // ── Génération du badge ─────────────────────────────────────────────────
+  // ── Génération / récupération du badge ──────────────────────────────────
   const handleGenerer = async () => {
     if (!photo || !nom || !prenom || !genre) {
       alert('Remplis tous les champs et ajoute ta photo !')
@@ -214,7 +249,7 @@ export default function BadgeGenerator() {
       const prenomClean = sanitize(prenom)
       const nomComplet  = `${prenomClean} ${nomClean}`
 
-      // ── Vérification doublon : cette personne existe-t-elle déjà ? ──
+      // ── Vérifie si déjà inscrit ──
       const { data: existing } = await supabase
         .from('utilisateurs')
         .select('id, prenom, nom_complet, genre, surnom, duo_prenom')
@@ -223,25 +258,8 @@ export default function BadgeGenerator() {
         .maybeSingle()
 
       if (existing) {
-        // ── Personne déjà inscrite → récupère son profil sans créer de doublon ──
-        setCurrentUserId(existing.id)
-        setCurrentPrenom(existing.prenom)
-        setSurnom(existing.surnom ?? getSurnomAleatoire(genre))
-
-        if (existing.duo_prenom) {
-          const prefix = genre === 'homme' ? 'LE GARS DE ' : 'LA GO DE '
-          setDuoSurnom(prefix + existing.duo_prenom.toUpperCase())
-          setDuoLocked(true)
-        }
-
-        // Met à jour localStorage
-        localStorage.setItem(LS.id,     existing.id)
-        localStorage.setItem(LS.prenom, existing.prenom)
-        localStorage.setItem(LS.nom,    nomClean)
-        localStorage.setItem(LS.genre,  genre)
-        localStorage.setItem(LS.surnom, existing.surnom ?? '')
-
-        setStep('badge')
+        // Profil existant → restaure sans créer de doublon
+        restoreProfile(existing, true)
         return
       }
 
@@ -254,15 +272,30 @@ export default function BadgeGenerator() {
           nom_complet: nomComplet,
           prenom: prenomClean,
           genre,
-          surnom: nouveauSurnom,   // sauvegardé en base
+          surnom: nouveauSurnom,
           duo_pris: false,
         })
         .select('id')
         .single()
 
-      if (error) throw error
+      if (error) {
+        // 409 = doublon détecté par contrainte unique → récupère le profil
+        if (error.code === '23505') {
+          const { data: fallback } = await supabase
+            .from('utilisateurs')
+            .select('id, prenom, nom_complet, genre, surnom, duo_prenom')
+            .eq('nom_complet', nomComplet)
+            .eq('genre', genre)
+            .single()
 
-      // Sauvegarde localStorage
+          if (fallback) {
+            restoreProfile(fallback, true)
+            return
+          }
+        }
+        throw error
+      }
+
       localStorage.setItem(LS.id,     data.id)
       localStorage.setItem(LS.prenom, prenomClean)
       localStorage.setItem(LS.nom,    nomClean)
@@ -272,6 +305,7 @@ export default function BadgeGenerator() {
       setCurrentUserId(data.id)
       setCurrentPrenom(prenomClean)
       setSurnom(nouveauSurnom)
+      setIsReturning(false)
       setStep('badge')
 
     } catch (err) {
@@ -282,13 +316,13 @@ export default function BadgeGenerator() {
     }
   }
 
-  // ── Tirage du binôme ────────────────────────────────────────────────────
+  // ── Tirage du binôme ─────────────────────────────────────────────────────
   const handleDuo = async () => {
-    if (duoLocked) return                              // 🔒 verrou absolu
+    if (duoLocked) return
     if (duoSurnom && duoSurnom !== DUO_INDISPO) return
     if (!genre || !currentUserId) return
 
-    setDuoLocked(true)   // 🔒 verrouille immédiatement
+    setDuoLocked(true)
     setDuoLoading(true)
     try {
       const genreOppose = genre === 'homme' ? 'femme' : 'homme'
@@ -304,26 +338,21 @@ export default function BadgeGenerator() {
       if (error) throw error
 
       if (!data || data.length === 0) {
-        setDuoLocked(false)   // permet de réessayer plus tard
+        setDuoLocked(false)
         setDuoSurnom(DUO_INDISPO)
         return
       }
 
-      // Tirage unique
       const random    = data[Math.floor(Math.random() * data.length)]
       const prefix    = genre === 'homme' ? 'LE GARS DE ' : 'LA GO DE '
       const surnomDuo = prefix + random.prenom.toUpperCase()
-      const prefixInv = genre === 'homme' ? 'LA GO DE ' : 'LE GARS DE '
 
-      // ── Mise à jour symétrique et réciproque ──
-
-      // 1. L'utilisateur courant
+      // Mise à jour symétrique et réciproque
       await supabase
         .from('utilisateurs')
         .update({ duo_prenom: random.prenom, duo_id: random.id, duo_pris: true })
         .eq('id', currentUserId)
 
-      // 2. Le binôme — reçoit aussi l'utilisateur courant
       await supabase
         .from('utilisateurs')
         .update({ duo_prenom: currentPrenom, duo_id: currentUserId, duo_pris: true })
@@ -331,11 +360,10 @@ export default function BadgeGenerator() {
 
       localStorage.setItem(LS.duoSurnom, surnomDuo)
       setDuoSurnom(surnomDuo)
-      // duoLocked reste true → définitif
 
     } catch (err) {
       console.error(err)
-      setDuoLocked(false)   // déverrouille seulement en cas d'erreur réseau
+      setDuoLocked(false)
       alert('Erreur lors du duo. Réessaie !')
     } finally {
       setDuoLoading(false)
@@ -361,13 +389,14 @@ export default function BadgeGenerator() {
     setStep('form'); setSurnom(''); setDuoSurnom('')
     setCurrentUserId(null); setCurrentPrenom('')
     setDuoLocked(false); setPhoto(null)
-    setPrenom(''); setNom(''); setGenre(null); setConsented(false)
+    setPrenom(''); setNom(''); setGenre(null)
+    setConsented(false); setIsReturning(false)
   }
 
   const duoTrouve  = duoSurnom && duoSurnom !== DUO_INDISPO
   const duoIndispo = duoSurnom === DUO_INDISPO
 
-  // ── Écran de chargement ──────────────────────────────────────────────────
+  // ── Chargement initial ───────────────────────────────────────────────────
   if (restoring) {
     return (
       <>
@@ -482,7 +511,7 @@ export default function BadgeGenerator() {
               </div>
 
               <button className="jef-cta" onClick={handleGenerer} disabled={loading || !consented}>
-                {loading ? '⏳ Génération en cours…' : '⚡ GÉNÉRER MON SURNOM JEF'}
+                {loading ? '⏳ Vérification en cours…' : '⚡ GÉNÉRER MON SURNOM JEF'}
               </button>
             </div>
 
@@ -490,7 +519,28 @@ export default function BadgeGenerator() {
 
             /* ════════ BADGE STEP ════════ */
             <div className="jef-card">
-              <div className="jef-card-title">🎉 Ton badge JEF 2026 !</div>
+
+              {/* ── Message retour utilisateur existant ── */}
+              {isReturning && (
+                <div className="jef-returning">
+                  <div className="jef-returning-emoji">🎉</div>
+                  <div className="jef-returning-title">
+                    Bienvenue à nouveau, {currentPrenom} !
+                  </div>
+                  <div className="jef-returning-body">
+                    Tu as déjà généré ton surnom JEF 2026.
+                    Voici ton badge — il ne changera jamais. 🔒
+                    {duoTrouve
+                      ? <><br /><strong>Ton binôme est déjà trouvé !</strong> Tu peux télécharger ton badge duo ci-dessous.</>
+                      : <><br />Tu n'as pas encore de binôme — <strong>trouve-le maintenant !</strong> 👇</>
+                    }
+                  </div>
+                </div>
+              )}
+
+              <div className="jef-card-title">
+                {isReturning ? '🏷️ Ton badge JEF 2026' : '🎉 Ton badge JEF 2026 !'}
+              </div>
 
               <div className="jef-badge-frame">
                 <BadgeCanvas photo={photo} nom={`${prenom} ${nom}`} surnom={surnom}
@@ -511,6 +561,17 @@ export default function BadgeGenerator() {
               {/* ── Duo mystère ── */}
               <div className="jef-duo">
                 <div className="jef-duo-title">💞 Duo Mystère JEF</div>
+
+                {/* Alerte : pas encore de binôme pour un utilisateur qui revient */}
+                {isReturning && !duoTrouve && !duoIndispo && (
+                  <div className="jef-alert-duo">
+                    <div className="jef-alert-duo-icon">⚡</div>
+                    <div className="jef-alert-duo-text">
+                      Tu n'as pas encore de binôme !<br />
+                      <strong>Clique ci-dessous pour trouver ton duo mystère JEF.</strong>
+                    </div>
+                  </div>
+                )}
 
                 {/* Duo trouvé — définitif et réciproque */}
                 {duoTrouve && (
