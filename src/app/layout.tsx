@@ -8,13 +8,13 @@ export const metadata: Metadata = {
     title: 'Mon Surnom JEF 2026 🎓',
     description: 'Le jeu viral de la JEF 2026 · Génère ton surnom et découvre ton duo mystère ! · FLLAC · UAC',
     images: [
-      {
-        url: '/renato.png',
-        width: 1200,
-        height: 630,
-        alt: 'JEF 2026 — Mon Surnom',
-      }
-    ],
+  {
+    url: '/renato.png?v=2',   // ← ajoute ?v=2
+    width: 1200,
+    height: 630,
+    alt: 'JEF 2026 — Mon Surnom',
+  }
+],
     type: 'website',
     locale: 'fr_FR',
   },
