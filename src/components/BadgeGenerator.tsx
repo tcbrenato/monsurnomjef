@@ -557,4 +557,4 @@ export default function BadgeGenerator() {
       </div>
     </>
   )
-}
+}  
