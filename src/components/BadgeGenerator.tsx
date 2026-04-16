@@ -222,7 +222,7 @@ export default function BadgeGenerator() {
     try {
       const nomClean    = sanitize(nom)
       const prenomClean = sanitize(prenom)
-      const nomComplet  = `${prenomClean} ${nomClean}`
+      const nomComplet = `${prenomClean} ${nomClean}`.toUpperCase().trim()
       const nouveauSurnom = getSurnomAleatoire(genre)
 
       // Appel à la fonction SQL atomique — gère doublon en une seule transaction
