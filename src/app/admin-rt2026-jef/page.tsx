@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabaseAdmin'
 import {
   Users, UserCheck, UserX, Trash2, RefreshCw,
   Download, TrendingUp, Clock, Zap, AlertTriangle,
